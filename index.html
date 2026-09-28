@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador & Gestor de QR Codes Dinâmicos</title>
+    <!-- Biblioteca de QR Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #38bdf8;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            background-color: #0f172a;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0369a1;
+        }
+        .btn-cancel {
+            background-color: #475569;
+        }
+        .btn-cancel:hover {
+            background-color: #334155;
+        }
+        
+        /* Lista de QR Codes */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #334155;
+            font-size: 0.9rem;
+        }
+        th {
+            color: #38bdf8;
+        }
+        .action-btn {
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            border-radius: 4px;
+        }
+        .btn-edit { background-color: #f59e0b; }
+        .btn-edit:hover { background-color: #d97706; }
+        .btn-view { background-color: #10b981; }
+        .btn-view:hover { background-color: #059669; }
+
+        /* Modal do QR Code */
+        #qr-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 320px;
+            width: 100%;
+        }
+        #qrcode-box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .redirect-screen {
+            text-align: center;
+            margin-top: 100px;
+            font-size: 1.2rem;
+            color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ECRÃ DE REDIRECIONAMENTO (Quando alguém lê o QR Code) -->
+    <div id="redirect-screen" class="redirect-screen" style="display: none;">
+        <p id="redirect-msg">A redirecionar...</p>
+    </div>
+
+    <!-- PAINEL PRINCIPAL -->
+    <div id="main-panel" class="container">
+        <h1>Gestor de QR Codes Dinâmicos</h1>
+
+        <!-- FORMULÁRIO -->
+        <div class="card">
+            <h2 id="form-title" style="font-size: 1.1rem; color: #38bdf8;">Criar Novo QR Code</h2>
+            
+            <label for="qr-id">Código / ID do QR Code (Ex: 1, 2, 3 ou instagram-loja):</label>
+            <input type="text" id="qr-id" placeholder="Digite um ID único">
+
+            <label for="qr-url">Link de Destino Atual (WhatsApp, Instagram, etc.):</label>
+            <input type="url" id="qr-url" placeholder="https://instagram.com/suaconta">
+
+            <div class="btn-group">
+                <button id="btn-save" onclick="saveQRCode()">Guardar QR Code</button>
+                <button id="btn-cancel" class="btn-cancel" style="display:none;" onclick="resetForm()">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- HISTÓRICO DE QR CODES -->
+        <div class="card">
+            <h2 style="font-size: 1.1rem; color: #38bdf8; margin-bottom: 10px;">Meus QR Codes Armazenados</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Link Atual</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="qr-table-body">
+                    <!-- Registos inseridos via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL DE VISUALIZAÇÃO DO QR CODE -->
+    <div id="qr-modal">
+        <div class="modal-content">
+            <h3 id="modal-id-title" style="color: #38bdf8;">QR Code</h3>
+            <div id="qrcode-box"></div>
+            <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 15px;">Este QR Code nunca muda! Só o link de destino é atualizado.</p>
+            <button onclick="closeModal()">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. VERIFICA SE É UM SCAN DE QR CODE (?go=ID)
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectId = urlParams.get('go');
+
+        if (redirectId) {
+            document.getElementById('main-panel').style.display = 'none';
+            document.getElementById('redirect-screen').style.display = 'block';
+
+            const storedData = JSON.parse(localStorage.getItem('my_qrcodes') || '{}');
+            if (storedData[redirectId]) {
+                window.location.href = storedData[redirectId];
+            } else {
+                document.getElementById('redirect-msg').innerText = "QR Code não encontrado ou desativado.";
+            }
+        } else {
+            renderTable();
+        }
+
+        // 2. FUNÇÕES DO PAINEL DE GESTÃO
+        function getQRCodes() {
+            return JSON.parse(localStorage.getItem('my_qrcodes') || '{}');
+        }
+
+        function saveQRCode() {
+            const idInput = document.getElementById('qr-id');
+            const urlInput = document.getElementById('qr-url');
+
+            const id = idInput.value.trim();
+            let url = urlInput.value.trim();
+
+            if (!id || !url) {
+                alert('Preencha o Código/ID e a URL!');
+                return;
+            }
+
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+
+            const qrcodes = getQRCodes();
+            qrcodes[id] = url;
+            localStorage.setItem('my_qrcodes', JSON.stringify(qrcodes));
+
+            alert(`QR Code '${id}' guardado com sucesso!`);
+            resetForm();
+            renderTable();
+        }
+
+        function editQRCode(id) {
+            const qrcodes = getQRCodes();
+            if (qrcodes[id]) {
+                document.getElementById('qr-id').value = id;
+                document.getElementById('qr-id').disabled = true; // Não permite mudar o ID na edição
+                document.getElementById('qr-url').value = qrcodes[id];
+                
+                document.getElementById('form-title').innerText = `Editar QR Code ID: ${id}`;
+                document.getElementById('btn-save').innerText = "Atualizar Link";
+                document.getElementById('btn-cancel').style.display = "block";
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('qr-id').value = '';
+            document.getElementById('qr-id').disabled = false;
+            document.getElementById('qr-url').value = '';
+            document.getElementById('form-title').innerText = "Criar Novo QR Code";
+            document.getElementById('btn-save').innerText = "Guardar QR Code";
+            document.getElementById('btn-cancel').style.display = "none";
+        }
+
+        function renderTable() {
+            const qrcodes = getQRCodes();
+            const tbody = document.getElementById('qr-table-body');
+            tbody.innerHTML = '';
+
+            const keys = Object.keys(qrcodes);
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b;">Nenhum QR Code armazenado ainda.</td></tr>';
+                return;
+            }
+
+            keys.forEach(id => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${id}</strong></td>
+                    <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        <a href="${qrcodes[id]}" target="_blank" style="color:#38bdf8;">${qrcodes[id]}</a>
+                    </td>
+                    <td>
+                        <button class="action-btn btn-view" onclick="showQRCode('${id}')">Ver QR</button>
+                        <button class="action-btn btn-edit" onclick="editQRCode('${id}')">Editar Link</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showQRCode(id) {
+            const dynamicUrl = `${window.location.origin}${window.location.pathname}?go=${encodeURIComponent(id)}`;
+            
+            document.getElementById('modal-id-title').innerText = `QR Code - ID: ${id}`;
+            const box = document.getElementById('qrcode-box');
+            box.innerHTML = '';
+
+            new QRCode(box, {
+                text: dynamicUrl,
+                width: 180,
+                height: 180
+            });
+
+            document.getElementById('qr-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
